@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ./start_ollama.sh:/start.sh
+    entrypoint: /start.sh
+    ports:
+      - "11434:11434"
+    networks:
+      app-network:
+        aliases:
+          - ollama
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      app-network:
+        aliases:
+          - postgres
+
+  python-app:
+    build: .
+    container_name: python-app
+    volumes:
+      - .:/app
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    working_dir: /app
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
