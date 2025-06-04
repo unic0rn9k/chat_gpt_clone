@@ -81,6 +81,8 @@ async def get_register_page():
     with open("static/register.html", "r") as file:
         return file.read()
 
+import re
+
 @app.post("/generate/{chat_id}")
 async def generate(chat_id: str, request: Request, conn=Depends(get_db_conn)):
     body = await request.json()
@@ -98,20 +100,38 @@ async def generate(chat_id: str, request: Request, conn=Depends(get_db_conn)):
         llm = Ollama(model="qwen3:0.6b", request_timeout=240.0, base_url="ollama:11434")
         bot_response = f"{llm.complete(message, timeout=None)}"
 
+        # Insert user and bot messages
         data = [
             ("User", msg_count, message, now, chat_id),
-            ("Bot", msg_count, bot_response, now, chat_id),
+            ("Bot", msg_count + 1, bot_response, now, chat_id),
         ]
-
         insert_query = """
             INSERT INTO messages (author, id, content, timestamp, chat_id)
             VALUES %s
         """
         execute_values(cur, insert_query, data)
 
+        # Check current topic
+        cur.execute("SELECT topic FROM chats WHERE id = %s", (chat_id,))
+        current_topic = cur.fetchone()[0]
+        
+        default_topic_pattern = r"^Chat from \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$"
+        if re.match(default_topic_pattern, current_topic):
+            topic_prompt = f"Generate a topic for a chat based on following prompt, It should be max 8 words and rephrase the message. Here is the message: {message}\n\n"
+            response = llm.complete(topic_prompt, timeout=30.0)
+            clean_text = re.sub(r"<think>.*?</think>", "", response.text, flags=re.DOTALL).strip()
+
+            chat_topic = clean_text.split("\n")[0].strip()
+
+            if len(chat_topic) > 60:
+                chat_topic = chat_topic[:60] + "..."
+
+            cur.execute("UPDATE chats SET topic = %s WHERE id = %s", (chat_topic, chat_id))
+        
     conn.commit()
 
-    return JSONResponse(content={"text": bot_response})
+    return JSONResponse(content={"text": bot_response, "topic": chat_topic if 'chat_topic' in locals() else current_topic})
+
 
 def get_db_connection():
     return psycopg2.connect(
