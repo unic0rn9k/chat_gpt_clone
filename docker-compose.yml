@@ -6,6 +6,7 @@ services:
     container_name: ollama
     volumes:
       - ./start_ollama.sh:/start.sh
+      - ollama_data:/root/.ollama 
     entrypoint: /start.sh
     ports:
       - "11434:11434"
