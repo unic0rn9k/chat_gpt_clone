@@ -188,10 +188,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
         })
     else:
         conn.close()
-        return JSONResponse(
-            content={"success": False, "message": "Invalid username or password"},
-            status_code=401
-        )
+        return RedirectResponse("/static/loginerror.html", status_code=303)
 
 @app.get("/chat/{id}", response_class=HTMLResponse)
 async def chat(request: Request, id: str, conn=Depends(get_db_conn)):

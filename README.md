@@ -1,3 +1,4 @@
 - `docker-compose up` to run the project
 - go to `localhost:8082` to view app UI
 - go to `localhost:8082/docs` to view documentation for API endpoints, and test them out
+- A very simple markdown parser is implemented with regex in templates/chat_page.html
