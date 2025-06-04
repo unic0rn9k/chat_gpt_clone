@@ -34,19 +34,40 @@ def get_db_conn():
         if conn:
             connection_pool.putconn(conn)
 
+with connection_pool.getconn().cursor() as cur:
+    try:
+        cur.execute("""
+            CREATE TABLE users (
+                username VARCHAR(255) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL
+            );
+            
+            CREATE TABLE chats (
+                id INT PRIMARY KEY,
+                topic VARCHAR(255),
+                username VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            
+            CREATE TABLE messages (
+                author VARCHAR(255),
+                id INT NOT NULL,
+                chat_id INT NOT NULL,
+                content TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (id, author),
+                FOREIGN KEY (author) REFERENCES users(username),
+                FOREIGN KEY (chat_id) REFERENCES chats(id)
+            );
+        """)
+    except Exception as e:
+        print(f"Failed to initialize db - {e}")
+    finally:
+        cur.close()
+
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
-    with open("static/index.html", "r") as file:
-        return file.read()
-    
-@app.get("/login", response_class=HTMLResponse)
-async def get_login_page():
     with open("static/login.html", "r") as file:
-        return file.read()
-    
-@app.get("/register", response_class=HTMLResponse)
-async def get_register_page():
-    with open("static/register.html", "r") as file:
         return file.read()
 
 @app.get("/chat/{message}")
@@ -74,7 +95,6 @@ async def chat(message: str, conn=Depends(get_db_conn)):
 
     return response
 
-#app = FastAPI()
 def get_db_connection():
     return psycopg2.connect(
         dbname="mydb",
@@ -98,12 +118,12 @@ async def register(request: Request):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT username FROM USER WHERE username = %s;", (username,))
+        cur.execute("SELECT username FROM users WHERE username = %s;", (username,))
         if cur.fetchone():
             return JSONResponse(status_code=400, content={"error": "Username already exists"})
 
         cur.execute(
-            "INSERT INTO USER (username, password) VALUES (%s, %s);",
+            "INSERT INTO users (username, password) VALUES (%s, %s);",
             (username, password)
         )
         conn.commit()
@@ -117,31 +137,29 @@ async def register(request: Request):
 
 @app.post("/login")
 async def login(request: Request):
-    data = await request.json()  # Manually parse JSON
+    data = await request.json()
     username = data.get("username")
     password = data.get("password")
 
-    if not username or not password:
-        return JSONResponse(status_code=400, content={"error": "Username and password required"})
+    conn = psycopg2.connect(
+        dbname="mydb",
+        user="postgres",
+        password="postgres",
+        host="postgres",
+        port=5432
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+    user = cur.fetchone()
+    conn.close()
 
-    conn = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT password FROM USER WHERE username = %s;", (username,))
-        record = cur.fetchone()
-        cur.close()
-
-        if not record or record[0] != password:
-            return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
-
-        return {"message": "Login successful"}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"Login failed: {e}"})
-    finally:
-        if conn:
-            conn.close()
+    if user:
+        return {"success": True, "message": "✅ Login successful"}
+    else:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid username or password"},
+            status_code=401
+        )
 
 @app.get("/initialize")
 async def initialize():
@@ -156,6 +174,9 @@ async def initialize():
         )
         cur = conn.cursor()
         cur.execute("""
+            DROP TABLE IF EXISTS messages;
+            DROP TABLE IF EXISTS chats;
+            DROP TABLE IF EXISTS users;
             CREATE TABLE users (
                 username VARCHAR(255) PRIMARY KEY,
                 password VARCHAR(255) NOT NULL
@@ -187,41 +208,3 @@ async def initialize():
     finally:
         if conn:
             conn.close()
-
-@app.get("/load_data")
-def load_data():
-    try:
-        engine = create_engine("postgresql://postgres:postgres@postgres:5432/mydb")
-
-        teaches = pd.read_csv("teaches.csv")
-        likes = pd.read_csv("likes.csv")
-        attends = pd.read_csv("attends.csv")
-
-        teaches.to_sql('teaches', engine, index=False, if_exists='replace')
-        likes.to_sql('likes', engine, index=False, if_exists='replace')
-        attends.to_sql('attends', engine, index=False, if_exists='replace')
-        return "✅"
-    except Exception as e:
-        return f"❌ {e}"
-
-@app.get("/query")
-def query():
-    q = 'SELECT * FROM teaches NATURAL JOIN attends NATURAL JOIN likes'
-    conn = None
-    try:
-        conn = psycopg2.connect(
-            dbname="mydb",
-            user="postgres",
-            password="postgres",
-            host="postgres",
-            port=5432
-        )
-        df = pd.read_sql_query(q, conn)
-        return HTMLResponse(content=f'{df}')
-    except Exception as e:
-        return f"❌ Failed to connect or create table: {e}"
-    finally:
-        if conn:
-            conn.close()
-
-

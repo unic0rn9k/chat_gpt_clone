@@ -1,42 +1,30 @@
-(async () => {
-    const form = document.getElementById('loginForm');
-    const errorEl = document.getElementById('loginError');
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
   
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorEl.textContent = ''; // Clear any previous error
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
   
-      const username = form.username.value.trim();
-      const password = form.password.value;
+    try {
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
   
-      // Basic front-end validation (can be expanded)
-      if (!username || !password) {
-        errorEl.textContent = 'Please enter both username and password.';
-        return;
+      const data = await response.json();
+  
+      if (response.ok && data.success) {
+        // Success: redirect or show message
+        window.location.href = '/';
+      } else {
+        // Failure: show error
+        document.getElementById('loginError').textContent = '❌ ' + data.message;
       }
+    } catch (err) {
+      document.getElementById('loginError').textContent = '⚠️ Network error';
+    }
+  });
   
-      try {
-        const response = await fetch('/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ username, password })
-        });
-  
-        if (response.ok) {
-          // Login succeeded; redirect to main page ("/" or wherever)
-          window.location.href = '/';
-        } else if (response.status === 401) {
-          errorEl.textContent = 'Invalid username or password.';
-        } else {
-          // Other error (400, 500, etc.)
-          errorEl.textContent = 'Login failed. Please try again.';
-        }
-      } catch (err) {
-        console.error('Network or server error:', err);
-        errorEl.textContent = 'Cannot connect to server.';
-      }
-    });
-  })();
   

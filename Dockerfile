@@ -14,4 +14,4 @@ COPY . /app
 EXPOSE 8000
 
 # Command to run your FastAPI application with uvicorn
-CMD ["uv", "run", "fastapi", "run", "main.py", "--port", "8082", "--reload", "--debug"]
+CMD ["uv", "run", "fastapi", "run", "main.py", "--port", "8082", "--reload"]
