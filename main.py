@@ -50,7 +50,6 @@ init_tables = """
                 content TEXT,
                 timestamp TIMESTAMP,
                 PRIMARY KEY (id, author),
-                FOREIGN KEY (author) REFERENCES users(username),
                 FOREIGN KEY (chat_id) REFERENCES chats(id)
             );
 """
@@ -74,7 +73,7 @@ with connection_pool.getconn().cursor() as cur:
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
-    with open("static/index.html", "r") as file:
+    with open("static/login.html", "r") as file:
         return file.read()
     
 @app.get("/register", response_class=HTMLResponse)
@@ -82,8 +81,14 @@ async def get_register_page():
     with open("static/register.html", "r") as file:
         return file.read()
 
-@app.get("/generate/{message}")
-async def generate(message: str, conn=Depends(get_db_conn)):
+@app.post("/generate/{chat_id}")
+async def generate(chat_id: str, request: Request, conn=Depends(get_db_conn)):
+    body = await request.json()
+    message = body.get("message")
+
+    if not message:
+        return JSONResponse(content={"error": "Missing message"}, status_code=400)
+
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM messages;")
         msg_count = cur.fetchone()[0]
@@ -91,21 +96,22 @@ async def generate(message: str, conn=Depends(get_db_conn)):
         now = dt.datetime.now()
 
         llm = Ollama(model="qwen3:0.6b", request_timeout=240.0, base_url="ollama:11434")
-        response = f"{llm.complete(message, timeout=None)}"
+        bot_response = f"{llm.complete(message, timeout=None)}"
+
         data = [
-            ("user", msg_count, message, now, 0),
-            ("bot", msg_count, response, now, 0)
+            ("User", msg_count, message, now, chat_id),
+            ("Bot", msg_count, bot_response, now, chat_id),
         ]
 
         insert_query = """
             INSERT INTO messages (author, id, content, timestamp, chat_id)
             VALUES %s
         """
-
         execute_values(cur, insert_query, data)
+
     conn.commit()
 
-    return response
+    return JSONResponse(content={"text": bot_response})
 
 def get_db_connection():
     return psycopg2.connect(
@@ -155,14 +161,14 @@ async def new_chat(username: str = Form(...), password: str = Form(...), conn=De
     cur = conn.cursor()
     now = dt.datetime.now()
 
-    print((uuid.uuid4(), f'Chat from {now}', username))
+    id = uuid.uuid4()
     cur.execute(
         "INSERT INTO chats (id, topic, username) VALUES (%s, %s, %s);",
-        (uuid.uuid4(), f'Chat from {now}', username))
+        (id, f'Chat from {now}', username))
 
     conn.commit()
     conn.close()
-    return HTMLResponse("BRUH")
+    return RedirectResponse(url=f"/chat/{id}", status_code=303)
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
@@ -182,21 +188,37 @@ async def login(request: Request, username: str = Form(...), password: str = For
         })
     else:
         conn.close()
-        return JSONResponse(
-            content={"success": False, "message": "Invalid username or password"},
-            status_code=401
-        )
+        return RedirectResponse("/static/loginerror.html", status_code=303)
 
-@app.get("/chat/{id}")
+@app.get("/chat/{id}", response_class=HTMLResponse)
 async def chat(request: Request, id: str, conn=Depends(get_db_conn)):
-    cur.execute("SELECT username FROM chats WHERE chat_id = %s", (id,))
-    username = cur.fetchone()
+    cur = conn.cursor()
+    # Get the chat owner username (to know who owns this chat)
+    cur.execute("SELECT username FROM chats WHERE id = %s", (id,))
+    result = cur.fetchone()
+    if not result:
+        return HTMLResponse("Chat not found", status_code=404)
+    chat_owner = result[0]
 
-    cur.execute("SELECT author, chat_id, content FROM messages WHERE username = %s", (username,))
-    chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
-
+    # Get all messages for this chat ordered by timestamp
+    cur.execute(
+        "SELECT author, content FROM messages WHERE chat_id = %s ORDER BY timestamp ASC",
+        (id,)
+    )
+    messages = [{"author": row[0], "content": row[1]} for row in cur.fetchall()]
+    cur.close()
     conn.close()
-    pass
+
+    # For demo, assume user viewing the chat is the chat owner
+    username = chat_owner
+
+    return templates.TemplateResponse("chat_page.html", {
+        "request": request,
+        "chat_id": id,
+        "messages": messages,
+        "username": username
+    })
+
 
 @app.get("/initialize")
 async def initialize():
