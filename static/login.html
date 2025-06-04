@@ -9,7 +9,7 @@
 <body>
   <div class="login-container">
     <h2>Login</h2>
-    <form id="loginForm">
+    <form action="/login" method="POST">
       <div class="input-group">
         <label for="username">Username</label>
         <input
@@ -33,15 +33,14 @@
       </div>
 
       <button type="submit" class="btn">Login</button>
-      <p id="loginError" class="error-message"></p>
+      <!-- Server-rendered error message can go here -->
+      <p class="error-message">
+        <!-- Example static error: Invalid credentials -->
+      </p>
     </form>
     <p class="switch-auth">
-        Don't have an account? <a href="/register">Create one here</a>
-      </p>
-      
+      Don't have an account? <a href="/register">Create one here</a>
+    </p>
   </div>
-
-  <script src="/static/login.js"></script>
 </body>
 </html>
-

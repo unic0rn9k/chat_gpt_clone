@@ -1,15 +1,13 @@
-from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from llama_index.llms.ollama import Ollama
-from fastapi import FastAPI
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from sqlalchemy import create_engine
 import psycopg2
 from psycopg2 import pool
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Form
 import datetime as dt
 from psycopg2.extras import execute_values
 
@@ -67,7 +65,12 @@ with connection_pool.getconn().cursor() as cur:
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
-    with open("static/login.html", "r") as file:
+    with open("static/index.html", "r") as file:
+        return file.read()
+    
+@app.get("/register", response_class=HTMLResponse)
+async def get_register_page():
+    with open("static/register.html", "r") as file:
         return file.read()
 
 @app.get("/chat/{message}")
@@ -136,11 +139,7 @@ async def register(request: Request):
             conn.close()
 
 @app.post("/login")
-async def login(request: Request):
-    data = await request.json()
-    username = data.get("username")
-    password = data.get("password")
-
+async def login(username: str = Form(...), password: str = Form(...)):
     conn = psycopg2.connect(
         dbname="mydb",
         user="postgres",
@@ -154,7 +153,7 @@ async def login(request: Request):
     conn.close()
 
     if user:
-        return {"success": True, "message": "✅ Login successful"}
+        return HTMLResponse("<h1>PERSONLIG SIDE</h1>")
     else:
         return JSONResponse(
             content={"success": False, "message": "Invalid username or password"},
