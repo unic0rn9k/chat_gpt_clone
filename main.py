@@ -34,19 +34,40 @@ def get_db_conn():
         if conn:
             connection_pool.putconn(conn)
 
+with connection_pool.getconn().cursor() as cur:
+    try:
+        cur.execute("""
+            CREATE TABLE users (
+                username VARCHAR(255) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL
+            );
+            
+            CREATE TABLE chats (
+                id INT PRIMARY KEY,
+                topic VARCHAR(255),
+                username VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            
+            CREATE TABLE messages (
+                author VARCHAR(255),
+                id INT NOT NULL,
+                chat_id INT NOT NULL,
+                content TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (id, author),
+                FOREIGN KEY (author) REFERENCES users(username),
+                FOREIGN KEY (chat_id) REFERENCES chats(id)
+            );
+        """)
+    except Exception as e:
+        print(f"Failed to initialize db - {e}")
+    finally:
+        cur.close()
+
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
-    with open("static/index.html", "r") as file:
-        return file.read()
-    
-@app.get("/login", response_class=HTMLResponse)
-async def get_login_page():
     with open("static/login.html", "r") as file:
-        return file.read()
-    
-@app.get("/register", response_class=HTMLResponse)
-async def get_register_page():
-    with open("static/register.html", "r") as file:
         return file.read()
 
 @app.get("/chat/{message}")
@@ -74,7 +95,6 @@ async def chat(message: str, conn=Depends(get_db_conn)):
 
     return response
 
-#app = FastAPI()
 def get_db_connection():
     return psycopg2.connect(
         dbname="mydb",
@@ -188,41 +208,3 @@ async def initialize():
     finally:
         if conn:
             conn.close()
-
-@app.get("/load_data")
-def load_data():
-    try:
-        engine = create_engine("postgresql://postgres:postgres@postgres:5432/mydb")
-
-        teaches = pd.read_csv("teaches.csv")
-        likes = pd.read_csv("likes.csv")
-        attends = pd.read_csv("attends.csv")
-
-        teaches.to_sql('teaches', engine, index=False, if_exists='replace')
-        likes.to_sql('likes', engine, index=False, if_exists='replace')
-        attends.to_sql('attends', engine, index=False, if_exists='replace')
-        return "✅"
-    except Exception as e:
-        return f"❌ {e}"
-
-@app.get("/query")
-def query():
-    q = 'SELECT * FROM teaches NATURAL JOIN attends NATURAL JOIN likes'
-    conn = None
-    try:
-        conn = psycopg2.connect(
-            dbname="mydb",
-            user="postgres",
-            password="postgres",
-            host="postgres",
-            port=5432
-        )
-        df = pd.read_sql_query(q, conn)
-        return HTMLResponse(content=f'{df}')
-    except Exception as e:
-        return f"❌ Failed to connect or create table: {e}"
-    finally:
-        if conn:
-            conn.close()
-
-
