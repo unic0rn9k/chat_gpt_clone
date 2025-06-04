@@ -214,11 +214,12 @@ async def login(request: Request, username: str = Form(...), password: str = For
 async def chat(request: Request, id: str, conn=Depends(get_db_conn)):
     cur = conn.cursor()
     # Get the chat owner username (to know who owns this chat)
-    cur.execute("SELECT username FROM chats WHERE id = %s", (id,))
+    cur.execute("SELECT username, topic FROM chats WHERE id = %s", (id,))
     result = cur.fetchone()
     if not result:
         return HTMLResponse("Chat not found", status_code=404)
     chat_owner = result[0]
+    topic = result[1]
 
     # Get all messages for this chat ordered by timestamp
     cur.execute(
@@ -236,7 +237,8 @@ async def chat(request: Request, id: str, conn=Depends(get_db_conn)):
         "request": request,
         "chat_id": id,
         "messages": messages,
-        "username": username
+        "username": username,
+        "topic": topic
     })
 
 

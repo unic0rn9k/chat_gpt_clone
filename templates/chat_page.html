@@ -6,26 +6,38 @@
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-box" id="chatBox">
-            {% for msg in messages %}
-                <div class="message {{ 'user-message' if msg.author == 'User' else 'bot-message' }}"data-raw="{{ msg.content | e }}">
-                    {{ msg.content | safe }}
-                </div>
-            {% endfor %}
+    <div class="chat-wrapper">  <!-- New wrapper div -->
+        <h2 class="chat-topic">{{ topic }}</h2>  <!-- Topic on top -->
+
+        <div class="chat-container">
+            <div class="chat-box" id="chatBox">
+                {% for msg in messages %}
+                    <div class="message {{ 'user-message' if msg.author == 'User' else 'bot-message' }}" data-raw="{{ msg.content | e }}">
+                        {{ msg.content | safe }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="input-container">
+                <input type="text" id="userMessage" placeholder="Type a message..." autocomplete="off" />
+                <button onclick="sendMessage()">Send</button>
+            </div>
         </div>
-        <div class="input-container">
-            <input type="text" id="userMessage" placeholder="Type a message..." autocomplete="off" />
-            <button onclick="sendMessage()">Send</button>
-        </div>
+
+        <!-- Button below chat container -->
+        <button onclick="backToChatList()">Back to Chat list</button>
     </div>
-    <button onclick="backToChatList()">Back to Chat list</button>
 
     <script>
         const chatId = "{{ chat_id }}";
         const username = "{{ username }}";
 
         function simpleMarkdownParser(text) {
+            text = text.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+            text = text.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+            text = text.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
             text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
             text = text.replace(/`(.+?)`/g, '<code>$1</code>');

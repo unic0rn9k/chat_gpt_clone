@@ -11,11 +11,25 @@ body {
     align-items: center;
     height: 100vh;
 }
+.chat-wrapper {
+    max-width: 1000px;
+    margin: 40px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+}
 
+.chat-topic {
+    text-align: center;
+    font-weight: 600;
+    color: #115490;
+    margin-bottom: 0;
+}
 /* Chat app container */
 .chat-container {
     width: 100%;
-    max-width: 420px;
+    max-width: 1000px;
     height: 600px;
     background-color: #ffffff;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
@@ -62,6 +76,7 @@ body {
 
 button {
     padding: 12px 18px;
+    max-width: 200px;
     margin-left: 10px;
     background-color: #115490;
     color: #fff;
@@ -70,10 +85,12 @@ button {
     font-size: 14px;
     cursor: pointer;
     transition: background-color 0.2s ease;
+    align-self: center;
 }
 
+
 button:hover {
-    background-color: #0056b3;
+    background-color: #002c5b;
 }
 
 /* Chat message bubbles */
@@ -100,29 +117,4 @@ button:hover {
     border-radius: 10px 10px 10px 0;
 }
 
-/* Responsive: better padding on small screens */
-@media (max-width: 480px) {
-    .chat-container {
-        width: 90%;
-        height: 90vh;
-    }
-
-    .chat-box {
-        padding: 12px;
-    }
-
-    .input-container {
-        padding: 10px;
-    }
-
-    #userMessage {
-        padding: 10px;
-        font-size: 13px;
-    }
-
-    button {
-        padding: 10px 14px;
-        font-size: 13px;
-    }
-}
 
