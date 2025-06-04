@@ -6,22 +6,24 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Welcome, {{ username }}</h1>
+    <h1>Welcome, {{ username }}</h1><br>
 
     <!-- Start New Chat Button -->
-    <form action="/chat/new" method="post" style="margin-bottom: 20px;">
-        <button type="submit">➕ Start New Chat</button>
-    </form>
+    <form action="/new_chat" method="post">
+        <input type="hidden" name="username" value="{username}" />
+        <input type="hidden" name="password" value="{password}" />
+        <button type="submit">Create Chat</button>
+    </form><br>
 
-    <h2>Your Chat Sessions</h2>
+    <h2>Your Chat Sessions</h2><br>
     <ul>
         {% for chat in chats %}
             <li>
                 <a href="/chat/{{ chat.id }}">
                     🗨️ {{ chat.topic or "Untitled Chat" }}
-                </a>
+                </a><br>
             </li>
-        {% else %}
+        {% else %}<br>
             <li>No chat sessions yet.</li>
         {% endfor %}
     </ul>
