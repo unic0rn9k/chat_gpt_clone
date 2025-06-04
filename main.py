@@ -117,14 +117,14 @@ async def generate(chat_id: str, request: Request, conn=Depends(get_db_conn)):
         
         default_topic_pattern = r"^Chat from \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$"
         if re.match(default_topic_pattern, current_topic):
-            topic_prompt = f"Generate a topic for a chat based on following prompt, It should be max 8 words and rephrase the message. Here is the message: {message}\n\n"
+            topic_prompt = f"Generate a chat topic title (strict maximum of 8 words, should not be a question) by rephrasing the following message:: {message}\n\n"
             response = llm.complete(topic_prompt, timeout=30.0)
             clean_text = re.sub(r"<think>.*?</think>", "", response.text, flags=re.DOTALL).strip()
 
             chat_topic = clean_text.split("\n")[0].strip()
 
-            if len(chat_topic) > 60:
-                chat_topic = chat_topic[:60] + "..."
+            if len(chat_topic) > 100:
+                chat_topic = chat_topic[:100] + "..."
 
             cur.execute("UPDATE chats SET topic = %s WHERE id = %s", (chat_topic, chat_id))
         

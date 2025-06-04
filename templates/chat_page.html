@@ -9,7 +9,7 @@
     <div class="chat-container">
         <div class="chat-box" id="chatBox">
             {% for msg in messages %}
-                <div class="message {{ 'user-message' if msg.author == 'User' else 'bot-message' }}">
+                <div class="message {{ 'user-message' if msg.author == 'User' else 'bot-message' }}"data-raw="{{ msg.content | e }}">
                     {{ msg.content | safe }}
                 </div>
             {% endfor %}
@@ -62,7 +62,6 @@
             thinkingMessageDiv.textContent = "Let me think...";
             chatBox.appendChild(thinkingMessageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
-            console.log('Thinking message shown');
 
             try {
                 const response = await fetch(`/generate/${chatId}`, {
@@ -119,6 +118,13 @@
             document.close();
         }
     }
+    window.addEventListener('DOMContentLoaded', () => {
+        const messages = document.querySelectorAll('.message');
+        messages.forEach(msgDiv => {
+            const raw = msgDiv.getAttribute('data-raw');
+            msgDiv.innerHTML = simpleMarkdownParser(raw);
+        });
+        });
     </script>
 </body>
 </html>
