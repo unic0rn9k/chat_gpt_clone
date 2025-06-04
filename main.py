@@ -12,10 +12,13 @@ import datetime as dt
 from psycopg2.extras import execute_values
 from fastapi.templating import Jinja2Templates
 import uuid
+from fastapi.responses import RedirectResponse
 
 psycopg2.extras.register_uuid()
+
 templates = Jinja2Templates(directory="templates")
 app = FastAPI(debug=True)
+
 executor = ThreadPoolExecutor(max_workers=10)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
