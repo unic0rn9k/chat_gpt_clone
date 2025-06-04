@@ -98,12 +98,12 @@ async def register(request: Request):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT username FROM USER WHERE username = %s;", (username,))
+        cur.execute("SELECT username FROM users WHERE username = %s;", (username,))
         if cur.fetchone():
             return JSONResponse(status_code=400, content={"error": "Username already exists"})
 
         cur.execute(
-            "INSERT INTO USER (username, password) VALUES (%s, %s);",
+            "INSERT INTO users (username, password) VALUES (%s, %s);",
             (username, password)
         )
         conn.commit()
@@ -117,31 +117,29 @@ async def register(request: Request):
 
 @app.post("/login")
 async def login(request: Request):
-    data = await request.json()  # Manually parse JSON
+    data = await request.json()
     username = data.get("username")
     password = data.get("password")
 
-    if not username or not password:
-        return JSONResponse(status_code=400, content={"error": "Username and password required"})
+    conn = psycopg2.connect(
+        dbname="mydb",
+        user="postgres",
+        password="postgres",
+        host="postgres",
+        port=5432
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+    user = cur.fetchone()
+    conn.close()
 
-    conn = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT password FROM USER WHERE username = %s;", (username,))
-        record = cur.fetchone()
-        cur.close()
-
-        if not record or record[0] != password:
-            return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
-
-        return {"message": "Login successful"}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"Login failed: {e}"})
-    finally:
-        if conn:
-            conn.close()
+    if user:
+        return {"success": True, "message": "✅ Login successful"}
+    else:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid username or password"},
+            status_code=401
+        )
 
 @app.get("/initialize")
 async def initialize():
@@ -156,6 +154,9 @@ async def initialize():
         )
         cur = conn.cursor()
         cur.execute("""
+            DROP TABLE IF EXISTS messages;
+            DROP TABLE IF EXISTS chats;
+            DROP TABLE IF EXISTS users;
             CREATE TABLE users (
                 username VARCHAR(255) PRIMARY KEY,
                 password VARCHAR(255) NOT NULL
