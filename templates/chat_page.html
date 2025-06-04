@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Chat {{ chat_id }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chatBox">
+            {% for msg in messages %}
+                <div class="message {{ 'user-message' if msg.author == username else 'bot-message' }}">
+                    {{ msg.content | safe }}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="input-container">
+            <input type="text" id="userMessage" placeholder="Type a message..." autocomplete="off" />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatId = "{{ chat_id }}";
+        const username = "{{ username }}";
+
+        function simpleMarkdownParser(text) {
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+            text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+            text = text.replace(/\n/g, '<br>');
+            return text;
+        }
+
+        function displayMessage(message, sender) {
+            const chatBox = document.getElementById("chatBox");
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', `${sender}-message`);
+            messageDiv.innerHTML = message;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const userMessageInput = document.getElementById("userMessage");
+            const userMessage = userMessageInput.value.trim();
+            if (!userMessage) return;
+
+            displayMessage(simpleMarkdownParser(userMessage), 'user');
+
+            try {
+                const response = await fetch(`/generate/${chatId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: userMessage})
+                });
+                const data = await response.json();
+                console.log(data);
+                if (data && data.text) {
+                    displayMessage(simpleMarkdownParser(data.text), 'bot');
+                } else {
+                    displayMessage("Sorry, no response.", 'bot');
+                }
+            } catch (error) {
+                displayMessage("Error connecting to the server.", 'bot');
+            }
+
+            userMessageInput.value = '';
+        }
+    </script>
+</body>
+</html>
+
