@@ -25,7 +25,7 @@ body {
   
   /* Start New Chat button */
   form button {
-    background-color: #007bff;
+    background-color: #115490;
     border: none;
     color: white;
     padding: 12px 25px;
@@ -36,7 +36,7 @@ body {
   }
   
   form button:hover {
-    background-color: #0056b3;
+    background-color: #002c5b;
   }
   
   /* Chat sessions list */
@@ -51,14 +51,47 @@ body {
     font-size: 18px;
   }
   
-  /* Chat link styling */
+  /* Make chat links look like boxes */
   ul li a {
-    color: #007bff;
-    text-decoration: none;
+    display: block;                /* Make the whole box clickable */
+    padding: 15px 20px;            /* Space inside the box */
+    background-color: #fff;        /* White background */
+    border: 1.5px solid #115490;  /* Blue border */
+    border-radius: 8px;            /* Rounded corners */
+    color: #115490;                /* Blue text */
     font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0,123,255,0.15);
+    text-decoration: none;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
   }
-  
+
+  /* Hover effect */
   ul li a:hover {
-    text-decoration: underline;
+    background-color: #002c5b;    /* Blue background */
+    color: white;                 /* White text on hover */
+    box-shadow: 0 5px 15px rgba(0,123,255,0.4);
   }
+
+  button {
+    background-color: #115490;
+    display: block;
+    margin: 0 auto;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  button:hover {
+    background-color: #002c5b; /* darker blue on hover */
+  }
+
+  button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.5);
+  }
+
   

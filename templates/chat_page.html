@@ -6,18 +6,25 @@
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-box" id="chatBox">
-            {% for msg in messages %}
-                <div class="message {{ 'user-message' if msg.author == username else 'bot-message' }}">
-                    {{ msg.content | safe }}
-                </div>
-            {% endfor %}
+    <div class="chat-wrapper">  <!-- New wrapper div -->
+        <h2 class="chat-topic">{{ topic }}</h2>  <!-- Topic on top -->
+
+        <div class="chat-container">
+            <div class="chat-box" id="chatBox">
+                {% for msg in messages %}
+                    <div class="message {{ 'user-message' if msg.author == 'User' else 'bot-message' }}" data-raw="{{ msg.content | e }}">
+                        {{ msg.content | safe }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="input-container">
+                <input type="text" id="userMessage" placeholder="Type a message..." autocomplete="off" />
+                <button onclick="sendMessage()">Send</button>
+            </div>
         </div>
-        <div class="input-container">
-            <input type="text" id="userMessage" placeholder="Type a message..." autocomplete="off" />
-            <button onclick="sendMessage()">Send</button>
-        </div>
+
+        <!-- Button below chat container -->
+        <button onclick="backToChatList()">Back to Chat list</button>
     </div>
 
     <script>
@@ -25,6 +32,12 @@
         const username = "{{ username }}";
 
         function simpleMarkdownParser(text) {
+            text = text.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+            text = text.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+            text = text.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
             text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
             text = text.replace(/`(.+?)`/g, '<code>$1</code>');
@@ -42,12 +55,25 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+
         async function sendMessage() {
             const userMessageInput = document.getElementById("userMessage");
             const userMessage = userMessageInput.value.trim();
             if (!userMessage) return;
 
+            // Show user's message
             displayMessage(simpleMarkdownParser(userMessage), 'user');
+
+            userMessageInput.value = '';
+            userMessageInput.focus();
+
+            // Show "Let me think..." message and keep reference
+            const chatBox = document.getElementById("chatBox");
+            const thinkingMessageDiv = document.createElement('div');
+            thinkingMessageDiv.classList.add('message', 'bot-message');
+            thinkingMessageDiv.textContent = "Let me think...";
+            chatBox.appendChild(thinkingMessageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
                 const response = await fetch(`/generate/${chatId}`, {
@@ -56,24 +82,60 @@
                     body: JSON.stringify({message: userMessage})
                 });
                 const data = await response.json();
+
+                // Remove the "Let me think..." message
+                thinkingMessageDiv.remove();
+                console.log('Thinking message removed');
+
                 if (data && data.text) {
                     displayMessage(simpleMarkdownParser(data.text), 'bot');
                 } else {
                     displayMessage("Sorry, no response.", 'bot');
                 }
             } catch (error) {
+                // Remove the "Let me think..." message
+                thinkingMessageDiv.remove();
+
                 displayMessage("Error connecting to the server.", 'bot');
             }
-
-            userMessageInput.value = '';
-            userMessageInput.focus();
         }
 
-        // Optional: Send message on Enter key
+
+
         document.getElementById('userMessage').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
+        });
+    async function backToChatList() {
+        const password = prompt("Please enter your password again to go back to chat list:");
+
+        if (!password) return;
+
+        const formData = new FormData();
+        formData.append("username", username);
+        formData.append("password", password);
+
+        const response = await fetch('/login', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.redirected) {
+            window.location.href = response.url;
+        } else {
+            const html = await response.text();
+            document.open();
+            document.write(html);
+            document.close();
+        }
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        const messages = document.querySelectorAll('.message');
+        messages.forEach(msgDiv => {
+            const raw = msgDiv.getAttribute('data-raw');
+            msgDiv.innerHTML = simpleMarkdownParser(raw);
+        });
         });
     </script>
 </body>
