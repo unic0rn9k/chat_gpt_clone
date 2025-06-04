@@ -2,18 +2,22 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from llama_index.llms.ollama import Ollama
+from fastapi import FastAPI
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 app = FastAPI()
+executor = ThreadPoolExecutor(max_workers=10)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
-def get_chat_page():
+async def get_chat_page():
     with open("static/index.html", "r") as file:
         return file.read()
 
 @app.get("/chat/{message}")
-def chat(message: str):
+async def chat(message: str):
     llm = Ollama(model="gemma3:1b", request_timeout=240.0, base_url="ollama:11434")
     response = llm.complete(message, timeout=None)
     return response
@@ -30,7 +34,7 @@ import os
 #app = FastAPI()
 
 @app.get("/initialize")
-def initialize():
+async def initialize():
     conn = None
     try:
         conn = psycopg2.connect(
