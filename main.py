@@ -46,27 +46,27 @@ async def initialize():
         )
         cur = conn.cursor()
         cur.execute("""
-            CREATE TABLE USER (
+            CREATE TABLE users (
                 username VARCHAR(255) PRIMARY KEY,
                 password VARCHAR(255) NOT NULL
             );
             
-            CREATE TABLE CHAT (
+            CREATE TABLE chats (
                 id INT PRIMARY KEY,
                 topic VARCHAR(255),
-                username VARCHAR(255) NOT NULL,  -- foreign key referencing USER(username)
-                FOREIGN KEY (username) REFERENCES USER(username)
+                username VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
             );
             
-            CREATE TABLE MESSAGE (
+            CREATE TABLE messages (
                 id INT,
                 author VARCHAR(255),
                 chat_id INT NOT NULL,
                 content TEXT,
                 timestamp TIMESTAMP,
                 PRIMARY KEY (id, author),
-                FOREIGN KEY (author) REFERENCES USER(username),
-                FOREIGN KEY (chat_id) REFERENCES CHAT(id)
+                FOREIGN KEY (author) REFERENCES users(username),
+                FOREIGN KEY (chat_id) REFERENCES chats(id)
             );
         """)
         conn.commit()
