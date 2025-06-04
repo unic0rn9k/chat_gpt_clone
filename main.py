@@ -73,7 +73,7 @@ with connection_pool.getconn().cursor() as cur:
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
-    with open("static/index.html", "r") as file:
+    with open("static/login.html", "r") as file:
         return file.read()
     
 @app.get("/register", response_class=HTMLResponse)
@@ -82,7 +82,13 @@ async def get_register_page():
         return file.read()
 
 @app.post("/generate/{chat_id}")
-async def generate(chat_id: str, conn=Depends(get_db_conn), message: str = Form(...)):
+async def generate(chat_id: str, request: Request, conn=Depends(get_db_conn)):
+    body = await request.json()
+    message = body.get("message")
+
+    if not message:
+        return JSONResponse(content={"error": "Missing message"}, status_code=400)
+
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM messages;")
         msg_count = cur.fetchone()[0]
@@ -90,21 +96,22 @@ async def generate(chat_id: str, conn=Depends(get_db_conn), message: str = Form(
         now = dt.datetime.now()
 
         llm = Ollama(model="qwen3:0.6b", request_timeout=240.0, base_url="ollama:11434")
-        response = f"{llm.complete(message, timeout=None)}"
+        bot_response = f"{llm.complete(message, timeout=None)}"
+
         data = [
             ("User", msg_count, message, now, chat_id),
-            ("Bot", msg_count, response, now, chat_id)
+            ("Bot", msg_count, bot_response, now, chat_id),
         ]
 
         insert_query = """
             INSERT INTO messages (author, id, content, timestamp, chat_id)
             VALUES %s
         """
-
         execute_values(cur, insert_query, data)
+
     conn.commit()
 
-    return response
+    return JSONResponse(content={"text": bot_response})
 
 def get_db_connection():
     return psycopg2.connect(
@@ -154,14 +161,14 @@ async def new_chat(username: str = Form(...), password: str = Form(...), conn=De
     cur = conn.cursor()
     now = dt.datetime.now()
 
-    print((uuid.uuid4(), f'Chat from {now}', username))
+    id = uuid.uuid4()
     cur.execute(
         "INSERT INTO chats (id, topic, username) VALUES (%s, %s, %s);",
-        (uuid.uuid4(), f'Chat from {now}', username))
+        (id, f'Chat from {now}', username))
 
     conn.commit()
     conn.close()
-    return HTMLResponse("BRUH")
+    return RedirectResponse(url=f"/chat/{id}", status_code=303)
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
