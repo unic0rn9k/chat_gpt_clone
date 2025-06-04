@@ -13,8 +13,9 @@ from psycopg2.extras import execute_values
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 
-app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+app = FastAPI(debug=True)
+
 executor = ThreadPoolExecutor(max_workers=10)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -44,7 +45,7 @@ with connection_pool.getconn().cursor() as cur:
             );
             
             CREATE TABLE chats (
-                id INT PRIMARY KEY,
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 topic VARCHAR(255),
                 username VARCHAR(255) NOT NULL,
                 FOREIGN KEY (username) REFERENCES users(username)
@@ -76,8 +77,8 @@ async def get_register_page():
     with open("static/register.html", "r") as file:
         return file.read()
 
-@app.get("/chat/{message}")
-async def chat(message: str, conn=Depends(get_db_conn)):
+@app.get("/generate/{message}")
+async def generate(message: str, conn=Depends(get_db_conn)):
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM messages;")
         msg_count = cur.fetchone()[0]
@@ -141,54 +142,47 @@ async def register(request: Request):
         if conn:
             conn.close()
 
+def available_chats(username, conn):
+    return pd.read_sql(f"select * from chats where username = '{username}'", conn)
+
+@app.post("/new_chat")
+async def new_chat(username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
+    cur = conn.cursor()
+    now = dt.datetime.now()
+    cur.execute(f"INSERT INTO chats (topic, username) VALUES ('Chat from {now}', '{username}');")
+    conn.commit()
+    conn.close()
+    return HTMLResponse("BRUH")
+
 @app.post("/login")
-async def login(username: str = Form(...), password: str = Form(...)):
-    conn = psycopg2.connect(
-        dbname="mydb",
-        user="postgres",
-        password="postgres",
-        host="postgres",
-        port=5432
-    )
+async def login(request: Request, username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
     cur = conn.cursor()
     cur.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
     user = cur.fetchone()
-    conn.close()
 
     if user:
-        # Redirect to /dashboard, passing the username as a query parameter
-        return RedirectResponse(
-            url=f"/dashboard?username={username}",
-            status_code=302
-        )
+        cur.execute("SELECT id, topic FROM chats WHERE username = %s", (username,))
+        chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
+        conn.close()
+
+        return templates.TemplateResponse("chat_list.html", {
+            "request": request,
+            "username": username,
+            "chats": chats
+        })
     else:
+        conn.close()
         return JSONResponse(
             content={"success": False, "message": "Invalid username or password"},
             status_code=401
         )
-
-@app.get("/dashboard")
-async def user_dashboard(request: Request, username: str):
-    # Now `username` comes from the query string: /dashboard?username=foo
-    conn = psycopg2.connect(
-        dbname="mydb",
-        user="postgres",
-        password="postgres",
-        host="postgres",
-        port=5432
-    )
-    cur = conn.cursor()
-    cur.execute("SELECT id, topic FROM chats WHERE username = %s", (username,))
-    chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
-    conn.close()
-
-    return templates.TemplateResponse("chat_list.html", {
-        "request": request,
-        "username": username,
-        "chats": chats
-    })
-
-
+    
+@app.get("/chat/{id}")
+async def chat(request: Request, id: str, conn=Depends(get_db_conn)):
+    #cur.execute("SELECT author, chat_id, content FROM messages WHERE username = %s", (username,))
+    #chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
+    #conn.close()
+    pass
 
 @app.get("/initialize")
 async def initialize():
