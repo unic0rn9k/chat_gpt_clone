@@ -11,8 +11,11 @@ from fastapi import FastAPI, Depends, Form
 import datetime as dt
 from psycopg2.extras import execute_values
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
+
 templates = Jinja2Templates(directory="templates")
 app = FastAPI(debug=True)
+
 executor = ThreadPoolExecutor(max_workers=10)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
