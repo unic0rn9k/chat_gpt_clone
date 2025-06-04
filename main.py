@@ -34,6 +34,37 @@ def get_db_conn():
         if conn:
             connection_pool.putconn(conn)
 
+with connection_pool.getconn().cursor() as cur:
+    try:
+        cur.execute("""
+            CREATE TABLE users (
+                username VARCHAR(255) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL
+            );
+            
+            CREATE TABLE chats (
+                id INT PRIMARY KEY,
+                topic VARCHAR(255),
+                username VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            
+            CREATE TABLE messages (
+                author VARCHAR(255),
+                id INT NOT NULL,
+                chat_id INT NOT NULL,
+                content TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (id, author),
+                FOREIGN KEY (author) REFERENCES users(username),
+                FOREIGN KEY (chat_id) REFERENCES chats(id)
+            );
+        """)
+    except Exception as e:
+        print(f"Failed to initialize db - {e}")
+    finally:
+        cur.close()
+
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page():
     with open("static/index.html", "r") as file:
@@ -74,7 +105,6 @@ async def chat(message: str, conn=Depends(get_db_conn)):
 
     return response
 
-#app = FastAPI()
 def get_db_connection():
     return psycopg2.connect(
         dbname="mydb",
@@ -139,51 +169,6 @@ async def login(request: Request):
         return {"message": "Login successful"}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Login failed: {e}"})
-    finally:
-        if conn:
-            conn.close()
-
-@app.get("/initialize")
-async def initialize():
-    conn = None
-    try:
-        conn = psycopg2.connect(
-            dbname="mydb",
-            user="postgres",
-            password="postgres",
-            host="postgres",
-            port=5432
-        )
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE users (
-                username VARCHAR(255) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL
-            );
-            
-            CREATE TABLE chats (
-                id INT PRIMARY KEY,
-                topic VARCHAR(255),
-                username VARCHAR(255) NOT NULL,
-                FOREIGN KEY (username) REFERENCES users(username)
-            );
-            
-            CREATE TABLE messages (
-                author VARCHAR(255),
-                id INT NOT NULL,
-                chat_id INT NOT NULL,
-                content TEXT,
-                timestamp TIMESTAMP,
-                PRIMARY KEY (id, author),
-                FOREIGN KEY (author) REFERENCES users(username),
-                FOREIGN KEY (chat_id) REFERENCES chats(id)
-            );
-        """)
-        conn.commit()
-        cur.close()
-        return "✅ Table created successfully!"
-    except Exception as e:
-        return f"❌ Failed to connect or create table: {e}"
     finally:
         if conn:
             conn.close()
