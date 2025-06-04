@@ -159,6 +159,8 @@ async def login(username: str = Form(...), password: str = Form(...)):
             content={"success": False, "message": "Invalid username or password"},
             status_code=401
         )
+    
+
 
 @app.get("/initialize")
 async def initialize():
