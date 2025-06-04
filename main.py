@@ -11,7 +11,10 @@ from fastapi import FastAPI, Depends, Form
 import datetime as dt
 from psycopg2.extras import execute_values
 from fastapi.templating import Jinja2Templates
+import uuid
 from fastapi.responses import RedirectResponse
+
+psycopg2.extras.register_uuid()
 
 templates = Jinja2Templates(directory="templates")
 app = FastAPI(debug=True)
@@ -27,6 +30,31 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
     dsn=DATABASE_URL
 )
 
+init_tables = """
+            CREATE TABLE users (
+                username VARCHAR(255) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL
+            );
+            
+            CREATE TABLE chats (
+                id UUID PRIMARY KEY,
+                topic VARCHAR(255),
+                username VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            
+            CREATE TABLE messages (
+                author VARCHAR(255),
+                id INT NOT NULL,
+                chat_id UUID NOT NULL,
+                content TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (id, author),
+                FOREIGN KEY (author) REFERENCES users(username),
+                FOREIGN KEY (chat_id) REFERENCES chats(id)
+            );
+"""
+
 def get_db_conn():
     conn = None
     try:
@@ -38,32 +66,9 @@ def get_db_conn():
 
 with connection_pool.getconn().cursor() as cur:
     try:
-        cur.execute("""
-            CREATE TABLE users (
-                username VARCHAR(255) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL
-            );
-            
-            CREATE TABLE chats (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                topic VARCHAR(255),
-                username VARCHAR(255) NOT NULL,
-                FOREIGN KEY (username) REFERENCES users(username)
-            );
-            
-            CREATE TABLE messages (
-                author VARCHAR(255),
-                id INT NOT NULL,
-                chat_id INT NOT NULL,
-                content TEXT,
-                timestamp TIMESTAMP,
-                PRIMARY KEY (id, author),
-                FOREIGN KEY (author) REFERENCES users(username),
-                FOREIGN KEY (chat_id) REFERENCES chats(id)
-            );
-        """)
+        cur.execute(init_tables)
     except Exception as e:
-        print(f"Failed to initialize db - {e}")
+        pass
     finally:
         cur.close()
 
@@ -149,7 +154,12 @@ def available_chats(username, conn):
 async def new_chat(username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
     cur = conn.cursor()
     now = dt.datetime.now()
-    cur.execute(f"INSERT INTO chats (topic, username) VALUES ('Chat from {now}', '{username}');")
+
+    print((uuid.uuid4(), f'Chat from {now}', username))
+    cur.execute(
+        "INSERT INTO chats (id, topic, username) VALUES (%s, %s, %s);",
+        (uuid.uuid4(), f'Chat from {now}', username))
+
     conn.commit()
     conn.close()
     return HTMLResponse("BRUH")
@@ -176,12 +186,16 @@ async def login(request: Request, username: str = Form(...), password: str = For
             content={"success": False, "message": "Invalid username or password"},
             status_code=401
         )
-    
+
 @app.get("/chat/{id}")
 async def chat(request: Request, id: str, conn=Depends(get_db_conn)):
-    #cur.execute("SELECT author, chat_id, content FROM messages WHERE username = %s", (username,))
-    #chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
-    #conn.close()
+    cur.execute("SELECT username FROM chats WHERE chat_id = %s", (id,))
+    username = cur.fetchone()
+
+    cur.execute("SELECT author, chat_id, content FROM messages WHERE username = %s", (username,))
+    chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
+
+    conn.close()
     pass
 
 @app.get("/initialize")
@@ -196,32 +210,11 @@ async def initialize():
             port=5432
         )
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(f"""
             DROP TABLE IF EXISTS messages;
             DROP TABLE IF EXISTS chats;
             DROP TABLE IF EXISTS users;
-            CREATE TABLE users (
-                username VARCHAR(255) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL
-            );
-            
-            CREATE TABLE chats (
-                id INT PRIMARY KEY,
-                topic VARCHAR(255),
-                username VARCHAR(255) NOT NULL,
-                FOREIGN KEY (username) REFERENCES users(username)
-            );
-            
-            CREATE TABLE messages (
-                author VARCHAR(255),
-                id INT NOT NULL,
-                chat_id INT NOT NULL,
-                content TEXT,
-                timestamp TIMESTAMP,
-                PRIMARY KEY (id, author),
-                FOREIGN KEY (author) REFERENCES users(username),
-                FOREIGN KEY (chat_id) REFERENCES chats(id)
-            );
+            {init_tables}
         """)
         conn.commit()
         cur.close()
