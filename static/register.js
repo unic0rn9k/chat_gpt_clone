@@ -33,7 +33,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         registerError.textContent = data.error;
       } else {
         alert('Registration successful! You can now log in.');
-        window.location.href = '/login';
+        window.location.href = '/static/login.html';
       }
     } catch (error) {
       console.error('Registration error:', error);

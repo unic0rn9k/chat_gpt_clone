@@ -10,8 +10,11 @@ from psycopg2 import pool
 from fastapi import FastAPI, Depends, Form
 import datetime as dt
 from psycopg2.extras import execute_values
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 
-app = FastAPI(debug=True)
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 executor = ThreadPoolExecutor(max_workers=10)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -153,13 +156,38 @@ async def login(username: str = Form(...), password: str = Form(...)):
     conn.close()
 
     if user:
-        return HTMLResponse("<h1>PERSONLIG SIDE</h1>")
+        # Redirect to /dashboard, passing the username as a query parameter
+        return RedirectResponse(
+            url=f"/dashboard?username={username}",
+            status_code=302
+        )
     else:
         return JSONResponse(
             content={"success": False, "message": "Invalid username or password"},
             status_code=401
         )
-    
+
+@app.get("/dashboard")
+async def user_dashboard(request: Request, username: str):
+    # Now `username` comes from the query string: /dashboard?username=foo
+    conn = psycopg2.connect(
+        dbname="mydb",
+        user="postgres",
+        password="postgres",
+        host="postgres",
+        port=5432
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT id, topic FROM chats WHERE username = %s", (username,))
+    chats = [{"id": row[0], "topic": row[1]} for row in cur.fetchall()]
+    conn.close()
+
+    return templates.TemplateResponse("chat_list.html", {
+        "request": request,
+        "username": username,
+        "chats": chats
+    })
+
 
 
 @app.get("/initialize")
