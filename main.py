@@ -138,27 +138,46 @@ async def register(request: Request):
         if conn:
             conn.close()
 
+def available_chats(username, conn):
+    return pd.read_sql(f"select * from chats where username = '{username}'", conn)
+
+@app.post("/new_chat")
+async def new_chat(username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
+    cur = conn.cursor()
+    now = dt.datetime.now()
+    cur.execute("SELECT COUNT(*) FROM chats;")
+    id = cur.fetchone()[0]
+    cur.execute(f"INSERT INTO chats (id, topic, username) VALUES ({id}, 'Chat from {now}', '{username}');")
+    conn.commit()
+    conn.close()
+    return HTMLResponse("BRUH")
+
 @app.post("/login")
-async def login(username: str = Form(...), password: str = Form(...)):
-    conn = psycopg2.connect(
-        dbname="mydb",
-        user="postgres",
-        password="postgres",
-        host="postgres",
-        port=5432
-    )
+async def login(username: str = Form(...), password: str = Form(...), conn=Depends(get_db_conn)):
     cur = conn.cursor()
     cur.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
     user = cur.fetchone()
-    conn.close()
 
     if user:
-        return HTMLResponse("<h1>PERSONLIG SIDE</h1>")
+        df = available_chats(username, conn)
+        conn.close()
+        return HTMLResponse(f"""
+  <h1>Create a New Chat</h1>
+  <form action="/new_chat" method="post">
+    <input type="hidden" name="username" value="{username}" />
+    <input type="hidden" name="password" value="{password}" />
+    <button type="submit">Create Chat</button>
+  </form>
+        <center><h1>Available Chats</h1></center><div>{df}</div>
+        """)
     else:
+        conn.close()
         return JSONResponse(
             content={"success": False, "message": "Invalid username or password"},
             status_code=401
         )
+    
+
 
 @app.get("/initialize")
 async def initialize():
