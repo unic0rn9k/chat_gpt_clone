@@ -16,7 +16,6 @@ def get_chat_page():
 def chat(message: str):
     llm = Ollama(model="gemma3:1b", request_timeout=240.0, base_url="ollama:11434")
     response = llm.complete(message, timeout=None)
-    print(f"OKOKOKOK: {message} -> {response}")
     return response
 
 # --------------------------------------------------------------------------
@@ -43,12 +42,28 @@ def initialize():
         )
         cur = conn.cursor()
         cur.execute("""
-            DROP TABLE IF EXISTS teaches;
-            DROP TABLE IF EXISTS attends;
-            DROP TABLE IF EXISTS likes;
-            CREATE TABLE teaches (lecturer VARCHAR(50), course VARCHAR(50));
-            CREATE TABLE attends (student VARCHAR(50), course VARCHAR(50));
-            CREATE TABLE likes (student VARCHAR(50), lecturer VARCHAR(50));
+            CREATE TABLE USER (
+                username VARCHAR(255) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL
+            );
+            
+            CREATE TABLE CHAT (
+                id INT PRIMARY KEY,
+                topic VARCHAR(255),
+                username VARCHAR(255) NOT NULL,  -- foreign key referencing USER(username)
+                FOREIGN KEY (username) REFERENCES USER(username)
+            );
+            
+            CREATE TABLE MESSAGE (
+                id INT,
+                author VARCHAR(255),
+                chat_id INT NOT NULL,
+                content TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (id, author),
+                FOREIGN KEY (author) REFERENCES USER(username),
+                FOREIGN KEY (chat_id) REFERENCES CHAT(id)
+            );
         """)
         conn.commit()
         cur.close()
